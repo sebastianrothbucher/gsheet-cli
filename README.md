@@ -43,16 +43,22 @@ Options:
                                                                         [string]
   --lookup-cols      Name(s) of columns to perform lookup on, need to be defined
                      in JSON (or CSV)                                   [string]
-  --file             Read output / append/update input file name; - for stdout /
-                     stdin                                   [string] [required]
+  --file             Read output / append/update input file name; - for stdout
+                     (only read)                             [string] [required]
 ```
 
 ## Examples
 
-### Reading formatted JSON
+### Reading JSON
 
 ```
-$ gsheet read --service-account some-12345-123456789abc.json --sheet 1aXf_jiHPPu1vbMRlrAYNAI2nTRWEdg1P7HLZXzagKB8 --worksheet Sheet2 --lastCol C --file test.json --format-json
+$ gsheet read --service-account some-12345-123456789abc.json --sheet 1aXf_jiHPPu1vbMRlrAYNAI2nTRWEdg1P7HLZXzagKB8 --worksheet Sheet2 --lastCol C --file test.json
+```
+
+### Reading formatted JSON to stdout
+
+```
+$ gsheet read --service-account some-12345-123456789abc.json --sheet 1aXf_jiHPPu1vbMRlrAYNAI2nTRWEdg1P7HLZXzagKB8 --worksheet Sheet2 --lastCol C --file - --format-json
 ```
 
 ### Reading CSV
@@ -61,10 +67,26 @@ $ gsheet read --service-account some-12345-123456789abc.json --sheet 1aXf_jiHPPu
 $ gsheet read --service-account some-12345-123456789abc.json --sheet 1aXf_jiHPPu1vbMRlrAYNAI2nTRWEdg1P7HLZXzagKB8 --worksheet Sheet2 --lastCol C --file test.csv --csv
 ```
 
-### Reading CSV to the command line
+### Reading CSV to stdout
 
 ```
 $ gsheet read --service-account some-12345-123456789abc.json --sheet 1aXf_jiHPPu1vbMRlrAYNAI2nTRWEdg1P7HLZXzagKB8 --worksheet Sheet2 --lastCol C --file - --csv
 ```
 
-(more examples to come)
+### Append from a JSON file
+
+```
+$ gsheet-cli sebastianrothbucher$ gsheet append --service-account some-12345-123456789abc.json --sheet 1aXf_jiHPPu1vbMRlrAYNAI2nTRWEdg1P7HLZXzagKB8 --worksheet Sheet2 --lastCol D --file test.json
+```
+
+### Append from a CSV file
+
+```
+$ gsheet append --service-account some-12345-123456789abc.json --sheet 1aXf_jiHPPu1vbMRlrAYNAI2nTRWEdg1P7HLZXzagKB8 --worksheet Sheet2 --lastCol D --file test.csv --csv
+```
+
+### Update from a JSON file
+
+```
+$ gsheet update --service-account some-12345-123456789abc.json --sheet 1aXf_jiHPPu1vbMRlrAYNAI2nTRWEdg1P7HLZXzagKB8 --worksheet Sheet2 --lastCol D --file test.json --lookup-cols Name
+```

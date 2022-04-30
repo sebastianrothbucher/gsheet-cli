@@ -10,7 +10,7 @@ const fastcsv = require('fast-csv');
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 
 async function authorize(serviceAccount) {
-    const credentials = JSON.parse(fs.readFileSync(path.resolve((serviceAccount.indexOf(path.sep) < 0 ? (os.homedir() + path.sep + '.gdrive' + path.sep) : '') + serviceAccount), 'utf-8'));
+    const credentials = JSON.parse(fs.readFileSync(path.resolve(__dirname, (serviceAccount.indexOf(path.sep) < 0 ? (os.homedir() + path.sep + '.gdrive' + path.sep) : '') + serviceAccount), 'utf-8'));
     credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
     return google.auth.getClient({ credentials, scopes: SCOPES });
 }
@@ -24,7 +24,7 @@ async function readInfo(sheets, sheetId, worksheet, firstCol, lastCol) {
     }
     const result = await sheets.spreadsheets.values.get({
         spreadsheetId: sheetId,
-        range: ((worksheet ? (worksheet + '!') : '') + (firstCol || 'A') + ':' + lastCol), //'Sheet2!A1:C1001',
+        range: ((worksheet ? (worksheet + '!') : '') + (firstCol || 'A') + ':' + lastCol),
         valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const vals = result.data.values;
@@ -39,20 +39,31 @@ async function readInfo(sheets, sheetId, worksheet, firstCol, lastCol) {
 }
 
 async function getHeaders(sheets, sheetId, worksheet, firstCol, lastCol) {
+    if (!sheetId) {
+        throw new Error('sheetId is needed');
+    }
+    if (!lastCol) {
+        throw new Error('lastCol is needed');
+    }
     const headers = await sheets.spreadsheets.values.get({
-        spreadsheetId: '1aXf_kiHOOu1vbMPlrAYNAI2nTRWEdg1P7HLTXkagKB8',
-        range: 'Sheet2!A1:C1',
+        spreadsheetId: sheetId,
+        range: ((worksheet ? (worksheet + '!') : '') + (firstCol || 'A') + '1:' + lastCol + '1'),
         valueRenderOption: 'UNFORMATTED_VALUE',
     });
     return headers.data.values[0];
 }
 
 async function appendInfo(sheets, rows, sheetId, worksheet, firstCol, lastCol) {
-    
-    const headers = await getHeaders(sheets);
+    if (!sheetId) {
+        throw new Error('sheetId is needed');
+    }
+    if (!lastCol) {
+        throw new Error('lastCol is needed');
+    }
+    const headers = await getHeaders(sheets, sheetId, worksheet, firstCol, lastCol);
     const result = await sheets.spreadsheets.values.append({
-        spreadsheetId: '1aXf_kiHOOu1vbMPlrAYNAI2nTRWEdg1P7HLTXkagKB8',
-        range: 'Sheet2!A:C',
+        spreadsheetId: sheetId,
+        range: ((worksheet ? (worksheet + '!') : '') + (firstCol || 'A') + ':' + lastCol),
         valueInputOption: 'RAW',
         resource: {
             values: rows.map(r => headers.map(h => (undefined === r[h]) ? null: r[h])),
@@ -61,11 +72,17 @@ async function appendInfo(sheets, rows, sheetId, worksheet, firstCol, lastCol) {
 }
 
 async function updateInfo(sheets, rows, filterCols, sheetId, worksheet, firstCol, lastCol) {
+    if (!sheetId) {
+        throw new Error('sheetId is needed');
+    }
+    if (!lastCol) {
+        throw new Error('lastCol is needed');
+    }
     if (filterCols.length < 1) {
         throw new Error('Need at least one filter col');
     }
-    const headers = await getHeaders(sheets);
-    const currentVals = await readInfoImpl(sheets);
+    const headers = await getHeaders(sheets, sheetId, worksheet, firstCol, lastCol);
+    const currentVals = await readInfo(sheets, sheetId, worksheet, firstCol, lastCol);
     const updateSpecs = rows.map((r, i) => { // {range, values} or null
         let found = 0; // (0 = not found)
         let existVal = null;
@@ -77,19 +94,19 @@ async function updateInfo(sheets, rows, filterCols, sheetId, worksheet, firstCol
         });
         const newRow = {...existVal, ...r};
         if (found >= 1) {
-            console.log('Found row ' + found + ' for item #' + i);
+            //console.log('Found row ' + found + ' for item #' + i);
             return {
-                range: 'Sheet2!A' + found + ':C' + found,
+                range: ((worksheet ? (worksheet + '!') : '') + (firstCol || 'A') + found + ':' + lastCol + found),
                 values: [headers.map(h => (undefined === newRow[h]) ? null: newRow[h])],
             };
         } else {
-            console.log('Cannot find row for item #' + i);
+            console.error('Cannot find row for item #' + i);
             return null;
         }
     }).filter(updateSpec => !!updateSpec);
     if (updateSpecs.length > 0) {
         const result = await sheets.spreadsheets.values.batchUpdate({
-            spreadsheetId: '1aXf_kiHOOu1vbMPlrAYNAI2nTRWEdg1P7HLTXkagKB8',
+            spreadsheetId: sheetId,
             valueInputOption: 'RAW',
             resource: {
                 valueInputOption: 'RAW',
@@ -113,7 +130,7 @@ const argv = yargs(process.argv.slice(2))
     .option('first-col', {describe: 'First column in the worksheet to look at (defaults to A)', type: 'string', nargs: 1})
     .option('last-col', {describe: 'Last column in the worksheet to look at (B or right of it)', type: 'string', nargs: 1})
     .option('lookup-cols', {describe: 'Name(s) of columns to perform lookup on, need to be defined in JSON (or CSV)', type: 'string', nargs: 1})
-    .option('file', {describe: 'Read output / append/update input file name; - for stdout / stdin', type: 'string', nargs: 1})
+    .option('file', {describe: 'Read output / append/update input file name; - for stdout (only read)', type: 'string', nargs: 1})
     .demandCommand(1)
     .demandOption(['service-account', 'sheet', 'file', 'lastCol']).argv;
 
@@ -132,19 +149,47 @@ async function doIt(argv) {
             }
         } else {
             if (argv.csv) {
-                await fastcsv.writeToPath(path.resolve(argv.file), valsJson, {headers: true});
+                await fastcsv.writeToPath(path.resolve(__dirname, argv.file), valsJson, {headers: true});
             } else {
-                fs.writeFileSync(path.resolve(argv.file), JSON.stringify(valsJson, null, argv.formatJson ? '  ' : undefined), 'utf-8');
+                fs.writeFileSync(path.resolve(__dirname, argv.file), JSON.stringify(valsJson, null, argv.formatJson ? '  ' : undefined), 'utf-8');
             }
         }
     } else if ('append' === argv._[0]) {
-
+        if ('-' === argv.file) {
+            throw new Error('Cannot read from stdin yet');
+        } else {
+            if (argv.csv) {
+                const rows = await (new Promise((resolve, reject) => {
+                    let data = [];
+                    fs.createReadStream(path.resolve(__dirname, argv.file))
+                        .pipe(fastcsv.parse({headers: true}))
+                        .on('error', reject)
+                        .on('data', row => data.push(row))
+                        .on('end', resolve(data));
+                }));
+                await appendInfo(sheets, rows, argv.sheet, argv.worksheet, argv.firstCol, argv.lastCol);
+            } else {
+                const rows = JSON.parse(fs.readFileSync(path.resolve(__dirname, argv.file), 'utf-8'));
+                await appendInfo(sheets, rows, argv.sheet, argv.worksheet, argv.firstCol, argv.lastCol);
+            }
+        }
     } else if ('update' === argv._[0]) {
-
+        if (argv.csv) {
+            const rows = await (new Promise((resolve, reject) => {
+                let data = [];
+                fs.createReadStream(path.resolve(__dirname, argv.file))
+                    .pipe(fastcsv.parse({headers: true}))
+                    .on('error', reject)
+                    .on('data', row => data.push(row))
+                    .on('end', resolve(data));
+            }));
+            await updateInfo(sheets, rows, argv.lookupCols.split(','), argv.sheet, argv.worksheet, argv.firstCol, argv.lastCol);
+        } else {
+            const rows = JSON.parse(fs.readFileSync(path.resolve(__dirname, argv.file), 'utf-8'));
+            await updateInfo(sheets, rows, argv.lookupCols.split(','), argv.sheet, argv.worksheet, argv.firstCol, argv.lastCol);
+        }
     } else {
         throw new Error('Command must be read|append|update');
     }
-    //TODO: await appendInfo(auth, [{"Name": "Bart", "Email": "bs@ts.com", "Budget": 42}]);
-    //TODO: await updateInfo(auth, [{"Name": "Marge", "Budget": 40}], ['Name']);
 }
 doIt(argv);
