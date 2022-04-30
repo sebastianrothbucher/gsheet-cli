@@ -6,6 +6,12 @@ CLI for google sheets (just like [gdrive](https://github.com/prasmussen/gdrive))
 $ npm i -g gsheet-cli
 ```
 
+or checkout this repo and run
+
+```
+$ npm link
+```
+
 ## Setting up a service account
 
 - Create a project in [https://console.cloud.google.com]
