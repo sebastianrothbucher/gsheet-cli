@@ -1,25 +1,33 @@
-// https://developers.google.com/sheets/api/guides/values#javascript_4
+#!/usr/bin/env node
 
+const yargs = require('yargs/yargs');
+const path = require('path');
+const os = require('os');
 const fs = require('fs');
 const { google } = require('googleapis');
 const fastcsv = require('fast-csv');
 
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 
-async function authorize() {
-    const credentials = JSON.parse(fs.readFileSync('/Users/sebastianrothbucher/Downloads/nifi-331520-d5fdeed35a8d.json', 'utf-8'));
+async function authorize(serviceAccount) {
+    const credentials = JSON.parse(fs.readFileSync(path.resolve((serviceAccount.indexOf(path.sep) < 0 ? (os.homedir() + path.sep + '.gdrive' + path.sep) : '') + serviceAccount), 'utf-8'));
     credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
     return google.auth.getClient({ credentials, scopes: SCOPES });
 }
 
-async function readInfoImpl(sheets) {
+async function readInfo(sheets, sheetId, worksheet, firstCol, lastCol) {
+    if (!sheetId) {
+        throw new Error('sheetId is needed');
+    }
+    if (!lastCol) {
+        throw new Error('lastCol is needed');
+    }
     const result = await sheets.spreadsheets.values.get({
-        spreadsheetId: '1aXf_kiHOOu1vbMPlrAYNAI2nTRWEdg1P7HLTXkagKB8',
-        range: 'Sheet2!A:C', //'Sheet2!A1:C1001',
+        spreadsheetId: sheetId,
+        range: ((worksheet ? (worksheet + '!') : '') + (firstCol || 'A') + ':' + lastCol), //'Sheet2!A1:C1001',
         valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const vals = result.data.values;
-    // format JSON
     const valsJson = vals
         .filter((v, i) => i > 0)
         .map(v => {
@@ -30,16 +38,7 @@ async function readInfoImpl(sheets) {
     return valsJson;
 }
 
-async function readInfo(auth) {
-    const sheets = google.sheets({ version: 'v4', auth });
-    const valsJson = await readInfoImpl(sheets);
-    console.log(JSON.stringify(valsJson));
-    // format CSV
-    const valsCsv = await fastcsv.writeToString(valsJson, {headers: true});
-    console.log(valsCsv);
-}
-
-async function getHeaders(sheets) {
+async function getHeaders(sheets, sheetId, worksheet, firstCol, lastCol) {
     const headers = await sheets.spreadsheets.values.get({
         spreadsheetId: '1aXf_kiHOOu1vbMPlrAYNAI2nTRWEdg1P7HLTXkagKB8',
         range: 'Sheet2!A1:C1',
@@ -48,8 +47,8 @@ async function getHeaders(sheets) {
     return headers.data.values[0];
 }
 
-async function appendInfo(auth, rows) {
-    const sheets = google.sheets({ version: 'v4', auth });
+async function appendInfo(sheets, rows, sheetId, worksheet, firstCol, lastCol) {
+    
     const headers = await getHeaders(sheets);
     const result = await sheets.spreadsheets.values.append({
         spreadsheetId: '1aXf_kiHOOu1vbMPlrAYNAI2nTRWEdg1P7HLTXkagKB8',
@@ -61,18 +60,17 @@ async function appendInfo(auth, rows) {
     });
 }
 
-async function updateInfo(auth, rows, filterCols) {
+async function updateInfo(sheets, rows, filterCols, sheetId, worksheet, firstCol, lastCol) {
     if (filterCols.length < 1) {
         throw new Error('Need at least one filter col');
     }
-    const sheets = google.sheets({ version: 'v4', auth });
     const headers = await getHeaders(sheets);
     const currentVals = await readInfoImpl(sheets);
     const updateSpecs = rows.map((r, i) => { // {range, values} or null
         let found = 0; // (0 = not found)
         let existVal = null;
         currentVals.forEach((currentVal, ii) => {
-            if (filterCols.filter(h => currentVal[h] === r[h]).length === filterCols.length) {
+            if (filterCols.filter(h => (((currentVal[h] !== undefined) && (r[h] !== undefined)) && (currentVal[h] === r[h]))).length === filterCols.length) {
                 found = ii + 2; // (row 2 is first) 
                 existVal = currentVal;
             }
@@ -101,14 +99,52 @@ async function updateInfo(auth, rows, filterCols) {
     }
 }
 
+const argv = yargs(process.argv.slice(2))
+    .locale('en-US')
+    .usage('Access a gsheet from the command line\ngsheet read|append|update --service-account <file> [--csv] [--format-json] --sheet <id> [--worksheet <name>] [--firstCol=A] --lastCol=<B or right> [--lookup-cols <col>[,<col>]] --file <file>|-')
+    .command('read', 'Read gsheet and return as JSON (or CSV)')
+    .command('append', 'Apend JSON (or CSV) to gsheet - proprety names = column names')
+    .command('update', 'Update gsheet from JSON (or CSV) - proprety names = column names; needs --lookup-cols to be given')
+    .option('service-account', {describe: 'File name of service account file - either path or in ~/.gdrive/ (same as gdrive)', type: 'string', nargs: 1})
+    .option('csv', {describe: 'Read output / append/update input is CSV (not JSON)', type: 'boolean'})
+    .option('format-json', {describe: 'Format the JSON output (JSON only)', type: 'boolean'})
+    .option('sheet', {describe: 'ID of the gsheet (last part of URL)', type: 'string', nargs: 1})
+    .option('worksheet', {describe: 'Name of the worksheet (defaults to first worksheet)', type: 'string', nargs: 1})
+    .option('first-col', {describe: 'First column in the worksheet to look at (defaults to A)', type: 'string', nargs: 1})
+    .option('last-col', {describe: 'Last column in the worksheet to look at (B or right of it)', type: 'string', nargs: 1})
+    .option('lookup-cols', {describe: 'Name(s) of columns to perform lookup on, need to be defined in JSON (or CSV)', type: 'string', nargs: 1})
+    .option('file', {describe: 'Read output / append/update input file name; - for stdout / stdin', type: 'string', nargs: 1})
+    .demandCommand(1)
+    .demandOption(['service-account', 'sheet', 'file', 'lastCol']).argv;
+
+
 // now finally do it
-async function doIt() {
-    const auth = await authorize();
-    await readInfo(auth);
-    await appendInfo(auth, [{"Name": "Bart", "Email": "bs@ts.com", "Budget": 42}]);
-    await updateInfo(auth, [{"Name": "Marge", "Budget": 40}], ['Name']);
+async function doIt(argv) {
+    const auth = await authorize(argv.serviceAccount);
+    const sheets = google.sheets({ version: 'v4', auth });
+    if ('read' === argv._[0]) {
+        const valsJson = await readInfo(sheets, argv.sheet, argv.worksheet, argv.firstCol, argv.lastCol);
+        if ('-' === argv.file) {
+            if (argv.csv) {
+                await fastcsv.writeToStream(process.stdout, valsJson, {headers: true});
+            } else {
+                process.stdout.write(JSON.stringify(valsJson, null, argv.formatJson ? '  ' : undefined));
+            }
+        } else {
+            if (argv.csv) {
+                await fastcsv.writeToPath(path.resolve(argv.file), valsJson, {headers: true});
+            } else {
+                fs.writeFileSync(path.resolve(argv.file), JSON.stringify(valsJson, null, argv.formatJson ? '  ' : undefined), 'utf-8');
+            }
+        }
+    } else if ('append' === argv._[0]) {
+
+    } else if ('update' === argv._[0]) {
+
+    } else {
+        throw new Error('Command must be read|append|update');
+    }
+    //TODO: await appendInfo(auth, [{"Name": "Bart", "Email": "bs@ts.com", "Budget": 42}]);
+    //TODO: await updateInfo(auth, [{"Name": "Marge", "Budget": 40}], ['Name']);
 }
-
-// TODO: CSV or JSON from file, select lookup columns!!
-
-doIt();
+doIt(argv);
