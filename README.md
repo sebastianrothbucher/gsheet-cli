@@ -8,7 +8,10 @@ $ npm i -g gsheet-cli
 
 ## Setting up a service account
 
-- 
+- Create a project in [https://console.cloud.google.com]
+- Enable the google sheets API via [https://console.cloud.google.com/apis/library]
+- Create a service account in [https://console.cloud.google.com/iam-admin/serviceaccounts/]
+- Download the file and store (ideally in .gsheet/...json)
 
 (per se, one could also do this via a personalized token - just not implemented yet)
 
