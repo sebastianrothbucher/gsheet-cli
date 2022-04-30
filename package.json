@@ -1,7 +1,9 @@
 {
   "name": "sheetapi",
   "version": "1.0.0",
-  "scripts": {},
+  "scripts": {
+      "start": "node index.js"
+  },
   "dependencies": {
     "fast-csv": "^4.3.6",
     "googleapis": "^39.2.0"
