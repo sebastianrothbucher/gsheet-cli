@@ -1,6 +1,6 @@
 # gsheet
 
-CLI for google sheets (just like [gdrive](https://github.com/prasmussen/gdrive))
+CLI for google sheets (just like [rclone](https://rclone.org/) or [gdrive](https://github.com/prasmussen/gdrive))
 
 ```
 $ npm i -g gsheet-cli
