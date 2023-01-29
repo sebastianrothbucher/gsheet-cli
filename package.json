@@ -1,6 +1,6 @@
 {
   "name": "gsheet-cmd",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "bin": {
     "gsheet": "./index.js"
   },
@@ -11,5 +11,9 @@
     "fast-csv": "^4.3.6",
     "googleapis": "^39.2.0",
     "yargs": "^17.4.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sebastianrothbucher/gsheet-cmd.git"
   }
 }
