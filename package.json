@@ -1,5 +1,5 @@
 {
-  "name": "sheetapi",
+  "name": "gsheet-cli",
   "version": "1.0.0",
   "bin": {
     "gsheet": "./index.js"
