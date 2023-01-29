@@ -1,5 +1,5 @@
 {
-  "name": "gsheet-cli",
+  "name": "gsheet-cmd",
   "version": "1.0.0",
   "bin": {
     "gsheet": "./index.js"
