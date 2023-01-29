@@ -1,6 +1,6 @@
 {
   "name": "gsheet-cmd",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "bin": {
     "gsheet": "./index.js"
   },
@@ -15,5 +15,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/sebastianrothbucher/gsheet-cmd.git"
-  }
+  },
+  "license": "MIT"
 }
