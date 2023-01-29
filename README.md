@@ -3,7 +3,7 @@
 CLI for google sheets (just like [rclone](https://rclone.org/) or [gdrive](https://github.com/prasmussen/gdrive))
 
 ```
-$ npm i -g gsheet-cli
+$ npm i -g gsheet-cmd
 ```
 
 or checkout this repo and run
@@ -85,7 +85,7 @@ $ gsheet read --service-account some-12345-123456789abc.json --sheet 1aXf_jiHPPu
 ### Append from a JSON file
 
 ```
-$ gsheet-cli sebastianrothbucher$ gsheet append --service-account some-12345-123456789abc.json --sheet 1aXf_jiHPPu1vbMRlrAYNAI2nTRWEdg1P7HLZXzagKB8 --worksheet Sheet2 --lastCol D --file test.json
+$ gsheet sebastianrothbucher$ gsheet append --service-account some-12345-123456789abc.json --sheet 1aXf_jiHPPu1vbMRlrAYNAI2nTRWEdg1P7HLZXzagKB8 --worksheet Sheet2 --lastCol D --file test.json
 ```
 
 ### Append from a CSV file
